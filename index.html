@@ -1,0 +1,925 @@
+<title>Edmonds Rocketry Club 2.0</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=Geist+Mono:wght@500&display=swap">
+<style>
+/* Layout: "night launch". One committed dark world: deep navy ground, electric Edmonds blue and
+   launch-green glow, a floating glass nav, a bento grid of proof, big tight display type and an
+   altitude readout that climbs as you scroll. Blue and green are matched by eye to the rocket;
+   swap the hex values below for the official Edmonds palette. */
+:root {
+  --bg: #040a1c;
+  --bg-2: #08133a;
+  --glass: rgba(255,255,255,.055);
+  --glass-hi: rgba(255,255,255,.10);
+  --line: rgba(255,255,255,.13);
+  --fg: #eef3ff;
+  --muted: #a3b4da;
+  --blue: #5a86ff;
+  --blue-deep: #1c3faa;
+  --green: #3ddc7a;
+  --green-soft: #a0f0bb;
+  --warn: #ffb35c;
+  --font-display: "Bricolage Grotesque", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Hanken Grotesk", system-ui, sans-serif;
+  --font-data: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 26px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 18px; line-height: 1.6; margin: 0; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 60; background: var(--bg); }
+.grain { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .09;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 800; letter-spacing: -.03em; line-height: 1; margin: 0; text-wrap: balance; }
+a { color: inherit; }
+img { display: block; width: 100%; height: 100%; object-fit: cover; }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--green); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: 1200px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); position: relative; z-index: 2; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; font: 500 12px/1 var(--font-data); letter-spacing: .16em; text-transform: uppercase; color: var(--green-soft); margin: 0 0 20px; }
+.eyebrow::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 14px 2px rgba(61,220,122,.7); }
+.fill { border-bottom: 2px dashed var(--green); white-space: nowrap; }
+.muted { color: var(--muted); }
+.note { font-size: 15px; color: var(--muted); margin: 22px 0 0; }
+.note a, .lede a, p a { text-underline-offset: 3px; text-decoration-color: rgba(255,255,255,.4); }
+.grad { background: linear-gradient(95deg, #7da2ff 0%, #53c6c0 55%, #3ddc7a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+
+/* ---------- floating nav ---------- */
+.hdr { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 50; padding-block: 12px; }
+.pill { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 8px 8px 8px 22px; border: 1px solid var(--line); border-radius: 999px;
+  background: rgba(8,19,58,.66); -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5); box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; white-space: nowrap; min-width: 0; }
+.brand > svg { width: 36px; height: 36px; padding: 7px; flex: none; border-radius: 12px; background: var(--glass-hi); border: 1px solid var(--line); }
+.brand .bt { display: flex; flex-direction: column; min-width: 0; }
+.brand .bt b { font: 800 18px/1.05 var(--font-display); letter-spacing: -.025em; }
+.brand .bt small { margin-top: 4px; font: 500 10.5px/1.2 var(--font-data); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tabs { display: flex; gap: 2px; list-style: none; margin: 0; padding: 0; font: 600 14px/1 var(--font-body); }
+.tabs a { display: block; padding: 11px 15px; border-radius: 999px; text-decoration: none; color: var(--muted); white-space: nowrap; transition: background .2s, color .2s; }
+.tabs a:hover { color: #fff; background: var(--glass-hi); }
+.tabs a[aria-current="page"] { background: #fff; color: #06122e; }
+.give { background: var(--green); color: #02210f; font: 700 14px/1 var(--font-body); padding: 13px 20px; border-radius: 999px; text-decoration: none; white-space: nowrap; }
+.give:hover { background: #63ea96; }
+
+/* ---------- buttons ---------- */
+.btns { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 10px; font: 700 16px/1 var(--font-body); padding: 17px 28px; border-radius: 999px; text-decoration: none; transition: transform .2s, background .2s, box-shadow .2s; }
+.btn.go { background: var(--green); color: #02210f; box-shadow: 0 8px 30px rgba(61,220,122,.28); }
+.btn.go:hover { background: #63ea96; transform: translateY(-2px); }
+.btn.ghost { border: 1px solid rgba(255,255,255,.3); color: #fff; background: var(--glass); }
+.btn.ghost:hover { background: var(--glass-hi); transform: translateY(-2px); }
+.btn.solid { background: var(--blue-deep); color: #fff; border: 1px solid rgba(255,255,255,.18); }
+.btn.solid:hover { background: #2a52cf; transform: translateY(-2px); }
+.arr { width: 16px; height: 16px; flex: none; }
+
+/* ---------- glass ---------- */
+.glass { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: var(--r); background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.03)); min-width: 0; }
+.glass::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(120,160,255,.18), transparent 60%); }
+.glass:hover::before { opacity: 1; }
+.glass > * { position: relative; }
+
+/* ---------- hero ---------- */
+.hero { position: relative; overflow: clip; margin-top: -76px; padding-top: 76px;
+  background: radial-gradient(60% 55% at 82% 8%, rgba(90,134,255,.38), transparent 70%), radial-gradient(48% 42% at 6% 96%, rgba(61,220,122,.20), transparent 70%), linear-gradient(180deg, var(--bg-2), var(--bg)); }
+.traj { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.traj path { fill: none; stroke: url(#tg); stroke-width: 2.5; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .85; }
+.traj .dots { stroke-dasharray: 2 10; stroke-width: 3; opacity: .35; }
+.hero-grid { display: grid; grid-template-columns: 1.25fr .8fr; gap: clamp(28px, 5vw, 72px); align-items: center; padding-block: clamp(36px, 6vw, 80px) clamp(56px, 8vw, 104px); }
+.hero-grid > * { min-width: 0; }
+.hero h1 { font-size: clamp(3.4rem, 10.2vw, 8.8rem); line-height: .86; letter-spacing: -.05em; margin-bottom: 28px; }
+.hero .lead { font-size: clamp(18px, 2vw, 22px); color: var(--muted); max-width: 40ch; margin: 0 0 34px; }
+.hero-art { position: relative; margin: 0; aspect-ratio: 3 / 4; border-radius: 40px; overflow: hidden; border: 1px solid var(--line); transform: rotate(2.2deg); box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 0 10px rgba(255,255,255,.04); max-width: 460px; justify-self: end; width: 100%; }
+.hero-art img { object-position: 45% 50%; }
+.chip { position: absolute; display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-radius: 18px; border: 1px solid rgba(255,255,255,.25); background: rgba(6,16,46,.58); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font: 500 11px/1.2 var(--font-data); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.chip b { font: 800 26px/1 var(--font-display); letter-spacing: -.03em; color: #fff; text-transform: none; }
+.chip.c1 { left: 16px; top: 18px; } .chip.c2 { right: 16px; bottom: 18px; }
+
+/* ---------- marquee ---------- */
+.marq { border-block: 1px solid var(--line); background: rgba(255,255,255,.025); overflow: hidden; position: relative; z-index: 2; }
+.marq-in { display: flex; width: max-content; }
+.marq ul { display: flex; flex: none; gap: 44px; list-style: none; margin: 0; padding: 18px 22px; font: 500 13px/1 var(--font-data); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.marq li { display: flex; align-items: center; gap: 44px; }
+.marq li::after { content: ""; width: 7px; height: 7px; background: var(--green); transform: rotate(45deg); }
+.marq b { color: #fff; font-weight: 500; }
+@media (prefers-reduced-motion: no-preference) { .marq-in { animation: slide 38s linear infinite; } .marq:hover .marq-in { animation-play-state: paused; } @keyframes slide { to { transform: translateX(-50%); } } }
+@media (prefers-reduced-motion: reduce) { .marq { overflow-x: auto; } }
+
+/* ---------- sections ---------- */
+section.s { padding-block: clamp(60px, 9vw, 116px); position: relative; }
+section.alt::before { content: ""; position: absolute; inset: 0; z-index: 0; background: linear-gradient(180deg, transparent, rgba(90,134,255,.08) 30%, rgba(90,134,255,.08) 70%, transparent); pointer-events: none; }
+h2 { font-size: clamp(2.3rem, 5.6vw, 4.4rem); line-height: .95; letter-spacing: -.045em; margin-bottom: 22px; max-width: 18ch; }
+.lede { font-size: clamp(18px, 1.9vw, 21px); max-width: 60ch; margin: 0 0 12px; color: #dbe5ff; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 80px); align-items: center; }
+.two > * { min-width: 0; }
+.two.top-al { align-items: start; }
+.ph { margin: 0; }
+.ph .crop { overflow: hidden; border-radius: var(--r); border: 1px solid var(--line); }
+.ph figcaption { font: 500 12px/1.4 var(--font-data); letter-spacing: .06em; color: var(--muted); padding: 12px 4px 0; }
+.r43 { aspect-ratio: 4 / 3; }
+.ph img { transition: transform .8s cubic-bezier(.2,.7,.2,1); }
+.ph:hover img { transform: scale(1.04); }
+section.s h2 + .lede, h2 + p { margin-top: 0; }
+
+/* ---------- bento ---------- */
+.bento { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: minmax(190px, auto); gap: 16px; margin-top: 36px; }
+.bento > * { min-width: 0; }
+.b-alt { grid-column: 1 / 3; grid-row: 1 / 3; padding: 30px; display: flex; flex-direction: column; justify-content: space-between; background: radial-gradient(90% 70% at 100% 0%, rgba(90,134,255,.35), transparent 70%), linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.03)); }
+.b-photo { grid-column: 3 / 5; grid-row: 1; padding: 0; margin: 0; min-height: 190px; }
+.b-photo img { position: absolute; inset: 0; }
+.b-photo::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(4,10,28,.85), transparent 55%); }
+.b-photo .cap { position: absolute; left: 20px; bottom: 16px; right: 20px; z-index: 1; font: 500 12px/1.4 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: #fff; }
+.b-teams { grid-column: 3; grid-row: 2; } .b-crew { grid-column: 4; grid-row: 2; }
+.b-score { grid-column: 1 / 3; grid-row: 3; }
+.b-safe { grid-column: 3 / 5; grid-row: 3; }
+.tile { padding: 24px; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
+.k { font: 500 11px/1.3 var(--font-data); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.big { font: 800 clamp(2.6rem, 4.6vw, 4rem)/.95 var(--font-display); letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+.huge { font: 800 clamp(4rem, 9vw, 7.6rem)/.85 var(--font-display); letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+.huge small { font-size: .32em; letter-spacing: -.02em; color: var(--muted); margin-left: .12em; }
+.tile p, .b-alt p { margin: 0; font-size: 16px; color: var(--muted); line-height: 1.4; }
+.gauge { margin-top: 22px; }
+.gauge .track { position: relative; height: 12px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: visible; }
+.gauge .fillbar { position: absolute; inset: 0 auto 0 0; width: 98.4%; border-radius: 99px; background: linear-gradient(90deg, var(--blue), var(--green)); box-shadow: 0 0 22px rgba(61,220,122,.55); }
+.gauge .tgt { position: absolute; right: 0; top: -7px; bottom: -7px; width: 2px; background: #fff; }
+.gauge .lab { display: flex; justify-content: space-between; margin-top: 12px; font: 500 11px/1 var(--font-data); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.ring { width: 104px; height: 104px; flex: none; }
+.ring .bg { stroke: rgba(255,255,255,.13); } .ring .fg { stroke: url(#rg); }
+.ring text { fill: #fff; font: 800 22px var(--font-display); }
+
+/* ---------- facts row ---------- */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 34px; }
+.fact { padding: 24px; }
+.fact b { display: block; font: 800 clamp(2rem, 3.6vw, 3rem)/1 var(--font-display); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.fact span { display: block; margin-top: 10px; color: var(--muted); font-size: 15px; line-height: 1.4; }
+
+/* ---------- cards ---------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 16px; margin-top: 34px; }
+.card { padding: 28px; }
+.card h3 { font-size: 26px; margin-bottom: 12px; letter-spacing: -.035em; }
+.card p { margin: 0 0 16px; color: var(--muted); font-size: 17px; }
+.card .link { white-space: nowrap; align-items: center; font: 600 15px/1 var(--font-body); color: var(--green-soft); text-decoration: none; display: inline-flex; gap: 8px; }
+.team { padding: 0; display: flex; flex-direction: column; }
+.team .photo { aspect-ratio: 4 / 3; display: grid; place-items: center; background: repeating-linear-gradient(135deg, rgba(255,255,255,.04), rgba(255,255,255,.04) 12px, rgba(255,255,255,.08) 12px, rgba(255,255,255,.08) 13px); font: 500 11px/1 var(--font-data); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.team .body { padding: 22px 24px 26px; }
+.team h3 { font-size: 24px; margin-bottom: 8px; }
+.team p { margin: 0 0 12px; color: var(--muted); font-size: 16px; }
+.team .meta { font: 500 13px/1 var(--font-data); display: inline-block; }
+.uses { list-style: none; margin: 34px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+.uses li { padding: 22px 24px; }
+.uses h3 { font-size: 20px; margin-bottom: 8px; color: #fff; }
+.uses p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.5; }
+.checks { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 14px; }
+.checks li { padding-left: 38px; position: relative; font-size: 18px; color: #dbe5ff; }
+.checks li::before { content: ""; position: absolute; left: 0; top: 2px; width: 24px; height: 24px; border-radius: 50%; background: rgba(61,220,122,.16); }
+.checks li::after { content: ""; position: absolute; left: 7px; top: 8px; width: 10px; height: 5px; border-left: 2.5px solid var(--green); border-bottom: 2.5px solid var(--green); transform: rotate(-45deg); }
+
+/* ---------- giving levels ---------- */
+.tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 36px; }
+.tier { display: flex; flex-direction: column; transition: transform .3s, border-color .3s; }
+.tier:hover { transform: translateY(-5px); border-color: rgba(255,255,255,.3); }
+.tier.top { border-color: rgba(61,220,122,.7); box-shadow: 0 0 0 1px rgba(61,220,122,.3), 0 20px 60px rgba(61,220,122,.14); }
+.tier.top .flag { display: block; }
+.flag { display: none; position: absolute; top: 14px; left: 14px; z-index: 2; background: var(--green); color: #02210f; font: 500 10px/1 var(--font-data); letter-spacing: .14em; text-transform: uppercase; padding: 7px 10px; border-radius: 99px; }
+.timg { aspect-ratio: 8 / 3; overflow: hidden; }
+.timg img { transition: transform .8s cubic-bezier(.2,.7,.2,1); }
+.tier:hover .timg img { transform: scale(1.07); }
+.tbody { padding: 20px 22px 24px; }
+.trow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.tier h3 { font-size: 20px; letter-spacing: -.02em; }
+.price { font: 800 28px/1 var(--font-display); letter-spacing: -.04em; font-variant-numeric: tabular-nums; color: var(--green-soft); }
+.tier p { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.5; }
+.swipe { display: none; font: 500 11px/1 var(--font-data); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 6px 0 0; }
+
+/* ---------- gallery ---------- */
+.gal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 34px; }
+.gal .ph { aspect-ratio: 4 / 3; border-radius: 22px; overflow: hidden; border: 1px solid var(--line); }
+.gal .ph.tall { grid-row: span 2; aspect-ratio: auto; }
+.gal .ph.wide { grid-column: span 2; }
+
+/* ---------- results ---------- */
+.score-grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: clamp(28px, 5vw, 64px); align-items: start; margin-top: 34px; }
+.score-grid > * { min-width: 0; }
+.bars { display: grid; gap: 22px; }
+.bar-row .lab { display: flex; justify-content: space-between; gap: 12px; font-size: 16px; margin-bottom: 9px; }
+.bar-row .lab b { font: 500 13px/1.4 var(--font-data); font-variant-numeric: tabular-nums; white-space: nowrap; color: #fff; }
+.bars .track { height: 12px; background: rgba(255,255,255,.1); border-radius: 99px; overflow: hidden; }
+.bars .fillbar { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--blue), #53c6c0); }
+.bars .fillbar.pen { background: linear-gradient(90deg, #ff8a3d, var(--warn)); }
+.callout { background: rgba(255,179,92,.10); border: 1px solid rgba(255,179,92,.4); border-radius: 20px; padding: 20px 22px; font-size: 17px; color: #ffe7cc; }
+.alt-svg { width: 100%; height: auto; display: block; margin-top: 30px; }
+.alt-svg text { font: 500 12px var(--font-data); fill: var(--muted); letter-spacing: .04em; }
+.alt-svg .strong { fill: #fff; font-size: 13px; }
+.alt-svg .axis { stroke: rgba(255,255,255,.18); stroke-width: 4; stroke-linecap: round; }
+.alt-svg .tgt { stroke: #fff; stroke-width: 2; stroke-dasharray: 4 4; }
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 20px; background: var(--glass); margin-top: 30px; }
+table { border-collapse: collapse; width: 100%; font: 500 14px var(--font-data); }
+th, td { text-align: left; padding: 13px 20px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+th { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; }
+
+/* ---------- timeline ---------- */
+.tl { list-style: none; margin: 36px 0 0; padding: 0; position: relative; }
+.tl::before { content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: rgba(255,255,255,.14); }
+.tl::after { content: ""; position: absolute; left: 7px; top: 8px; width: 2px; height: calc((100% - 16px) * var(--tpn, 0)); background: linear-gradient(to bottom, var(--blue), var(--green)); box-shadow: 0 0 14px rgba(61,220,122,.75); }
+.tl li { position: relative; padding: 0 0 18px 44px; }
+.tl li::before { content: ""; position: absolute; left: 0; top: 24px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); border: 3px solid rgba(255,255,255,.28); transition: border-color .3s, background .3s, box-shadow .3s; z-index: 1; }
+.tl li.done::before { border-color: var(--green); background: var(--green); box-shadow: 0 0 18px rgba(61,220,122,.9); }
+.tl .glass { padding: 22px 26px; display: grid; grid-template-columns: 150px 1fr; gap: 6px 28px; align-items: baseline; }
+.tl .when { font: 500 13px/1.4 var(--font-data); color: var(--green-soft); letter-spacing: .06em; display: grid; gap: 4px; align-content: start; }
+.tl .tm { font: 800 28px/1 var(--font-display); letter-spacing: -.04em; color: #fff; }
+.tl h3 { font-size: 24px; margin-bottom: 6px; }
+.tl p { margin: 0; color: var(--muted); font-size: 17px; max-width: 62ch; }
+.pt { display: inline-block; font: 500 10px/1 var(--font-data); letter-spacing: .1em; text-transform: uppercase; padding: 5px 9px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); margin-left: 10px; vertical-align: middle; }
+
+/* ---------- contact ---------- */
+.panel { padding: clamp(28px, 5vw, 56px); background: radial-gradient(70% 90% at 100% 0%, rgba(61,220,122,.18), transparent 70%), radial-gradient(70% 90% at 0% 100%, rgba(90,134,255,.28), transparent 70%), linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)); }
+.panel p { color: #dbe5ff; max-width: 52ch; }
+.lines { font: 500 15px/1.4 var(--font-data); display: grid; gap: 10px; margin-top: 26px; }
+.lines span { color: var(--muted); display: inline-block; min-width: 140px; }
+
+/* ---------- footer ---------- */
+.foot { position: relative; isolation: isolate; overflow: hidden; color: #fff; background: var(--bg); margin-top: 40px; }
+.foot-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 30% 20%; z-index: -2; }
+.foot-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(to bottom, var(--bg) 0%, rgba(4,10,28,0) 14%, rgba(4,10,28,.1) 36%, rgba(4,10,28,.62) 50%, rgba(4,10,28,.9) 64%, var(--bg) 100%); }
+.foot-inner { padding-top: clamp(230px, 34vw, 420px); padding-bottom: 30px; }
+.foot-cta h2 { font-size: clamp(2.8rem, 8.2vw, 7rem); line-height: .88; letter-spacing: -.055em; max-width: 12ch; margin-bottom: 18px; }
+.foot-cta .lead { font-size: 20px; color: var(--muted); max-width: 46ch; margin: 0 0 28px; }
+.foot-cols { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 36px; margin-top: 64px; padding-top: 34px; border-top: 1px solid var(--line); }
+.foot-cols > * { min-width: 0; }
+.foot-brand b { font: 800 20px var(--font-display); letter-spacing: -.02em; }
+.foot-brand p { margin: 8px 0 14px; color: var(--muted); font-size: 16px; max-width: 34ch; }
+.foot address { font: 500 13px/1.7 var(--font-data); font-style: normal; color: var(--muted); }
+.foot h4 { font: 500 12px/1 var(--font-data); letter-spacing: .16em; text-transform: uppercase; color: var(--green-soft); margin: 0 0 12px; }
+.foot ul { list-style: none; margin: 0; padding: 0; }
+.foot ul a { display: inline-block; padding: 5px 0; text-decoration: none; color: var(--muted); font-size: 16px; }
+.foot ul a:hover { color: #fff; }
+.foot-base { display: flex; flex-wrap: wrap; gap: 6px 24px; justify-content: space-between; margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+
+/* ---------- altimeter + dock ---------- */
+/* previous compact altimeter */
+.alt-read { position: fixed; z-index: 45; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 99px; border: 1px solid var(--line); background: rgba(8,19,58,.7); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); font: 500 12px/1 var(--font-data); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); pointer-events: none; }
+.alt-read b { color: #fff; font-weight: 500; font-variant-numeric: tabular-nums; min-width: 6.4ch; display: inline-block; text-align: right; }
+.alt-read i { display: block; width: 54px; height: 4px; border-radius: 9px; background: rgba(255,255,255,.14); position: relative; overflow: hidden; }
+.alt-read i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: linear-gradient(90deg, var(--blue), var(--green)); }
+.dock { display: none; }
+
+/* ---------- tablet ---------- */
+@media (max-width: 1000px) {
+  .tiers { grid-template-columns: repeat(2, 1fr); }
+  .bento { grid-template-columns: repeat(2, 1fr); }
+  .b-alt { grid-column: 1 / 3; grid-row: auto; }
+  .b-photo { grid-column: 1 / 3; grid-row: auto; aspect-ratio: 16 / 8; min-height: 0; }
+  .b-teams, .b-crew { grid-column: auto; grid-row: auto; }
+  .b-score { grid-column: 1 / 3; grid-row: auto; }
+  .b-safe { grid-column: 1 / 3; grid-row: auto; }
+}
+
+/* ---------- phones ---------- */
+@media (max-width: 820px) {
+  body { font-size: 17px; }
+  .alt-read { display: none; }
+  .hdr { padding-block: 8px; }
+  .pill { position: relative; padding: 7px 7px 7px 20px; }
+  .brand .bt b { font-size: 16px; }
+  .brand .bt small { font-size: 9.5px; letter-spacing: .07em; }
+  .pill > .give { display: none; }
+  .menu-btn { display: block; position: relative; flex: none; width: 46px; height: 46px; padding: 0; border-radius: 50%; border: 1px solid var(--line); background: var(--glass-hi); cursor: pointer; color: #fff; }
+  .menu-btn span { position: absolute; left: 14px; right: 14px; height: 2px; border-radius: 2px; background: #fff; transition: transform .25s, opacity .2s, top .25s; }
+  .menu-btn span:nth-child(1) { top: 16px; } .menu-btn span:nth-child(2) { top: 22px; } .menu-btn span:nth-child(3) { top: 28px; }
+  .menu-btn[aria-expanded="true"] span:nth-child(1) { top: 22px; transform: rotate(45deg); }
+  .menu-btn[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .menu-btn[aria-expanded="true"] span:nth-child(3) { top: 22px; transform: rotate(-45deg); }
+  .tabs { display: none; position: absolute; top: calc(100% + 8px); left: 0; right: 0; flex-direction: column; gap: 4px; padding: 12px; border-radius: 28px; border: 1px solid var(--line); background: #071236; box-shadow: 0 30px 80px rgba(0,0,0,.65); }
+  .tabs.open { display: flex; }
+  .tabs a { padding: 16px 18px; font: 700 20px/1 var(--font-display); letter-spacing: -.02em; }
+  .tabs .m-only { display: block; margin-top: 8px; }
+  .tabs .m-only .give { display: block; text-align: center; padding: 18px; font: 700 17px/1 var(--font-body); }
+  .hero { margin-top: -78px; padding-top: 78px; }
+  .traj { opacity: .3; }
+  .hero-grid { grid-template-columns: 1fr; padding-block: 28px 52px; gap: 36px; }
+  .hero h1 { font-size: clamp(3.5rem, 18vw, 5.4rem); margin-bottom: 22px; }
+  .hero .btns .btn { flex: 1 1 100%; justify-content: center; }
+  .hero-art { transform: rotate(1.4deg); max-width: none; aspect-ratio: 4 / 4.4; border-radius: 32px; justify-self: stretch; }
+  .hero-art img { object-position: 50% 55%; }
+  .two, .score-grid { grid-template-columns: 1fr; gap: 30px; }
+  section.s { padding-block: 56px; }
+  h2 { font-size: clamp(2.2rem, 11vw, 3.1rem); }
+  .tile { padding: 20px; } .b-alt { padding: 24px; }
+  .bento { gap: 12px; }
+  .big { font-size: 2.7rem; }
+  .gal { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .gal .ph { aspect-ratio: 1; border-radius: 18px; }
+  .gal .ph.tall { grid-row: span 2; aspect-ratio: auto; }
+  .gal .ph.wide, .gal .ph:last-child { grid-column: span 2; aspect-ratio: 16 / 9; }
+  .tl .glass { grid-template-columns: 1fr; padding: 18px 20px; }
+  .tl li { padding-left: 34px; }
+  .tiers { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    margin-left: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); margin-right: calc(-1 * max(16px, env(safe-area-inset-right, 0px)));
+    padding: 8px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)); scroll-padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  .tiers::-webkit-scrollbar { display: none; }
+  .tier { flex: 0 0 82%; scroll-snap-align: start; }
+  .swipe { display: block; }
+  .foot-shade { background: linear-gradient(to bottom, var(--bg) 0%, rgba(4,10,28,.05) 10%, rgba(4,10,28,.4) 22%, rgba(4,10,28,.88) 34%, var(--bg) 56%, var(--bg) 100%); }
+  .foot-inner { padding-top: 220px; padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
+  .foot-cta .lead { font-size: 18px; }
+  .foot-cols { grid-template-columns: 1fr 1fr; gap: 28px 20px; margin-top: 44px; }
+  .foot-brand { grid-column: 1 / -1; }
+  .foot .btns .btn { flex: 1 1 100%; justify-content: center; }
+  .dock { display: block; position: fixed; left: 0; right: 0; bottom: 0; z-index: 48; padding: 22px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); background: linear-gradient(to top, rgba(4,10,28,.95) 50%, rgba(4,10,28,0)); }
+  .dock .btn { display: flex; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 8px 30px rgba(61,220,122,.28); }
+}
+@media (max-width: 480px) { .bento { grid-template-columns: 1fr 1fr; } .tier { flex-basis: 86%; } .facts { grid-template-columns: 1fr 1fr; } .fact { padding: 18px; } }
+
+/* ---------- menu button + mobile-only items (hidden on desktop) ---------- */
+@media (min-width: 821px) { .menu-btn { display: none; } .tabs .m-only { display: none; } }
+.pill { position: relative; }
+
+/* ---------- bento extras ---------- */
+.huge.sm { font-size: clamp(3.4rem, 7vw, 6rem); }
+.big.s { font-size: clamp(1.6rem, 2.5vw, 2.2rem); line-height: 1.05; letter-spacing: -.04em; }
+.stages { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.stages span { font: 500 11px/1 var(--font-data); letter-spacing: .12em; text-transform: uppercase; padding: 9px 13px; border-radius: 99px; border: 1px solid var(--line); background: var(--glass); color: #fff; }
+.stages span:last-child { background: var(--green); color: #02210f; border-color: transparent; }
+.tlink { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; font: 600 15px/1 var(--font-body); color: var(--green-soft); text-decoration: none; }
+.tlink:hover { color: #fff; }
+
+/* ---------- sponsors ---------- */
+.sp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 34px; }
+.sp { aspect-ratio: 16 / 9; display: grid; place-items: center; align-content: center; padding: 18px; border-radius: 20px; text-align: center; min-width: 0; }
+.sp.real { background: rgba(255,255,255,.95); color: #0f1b3d; border: 1px solid rgba(255,255,255,.5); font: 800 clamp(16px, 1.7vw, 21px)/1.1 var(--font-display); letter-spacing: -.02em; }
+.sp.real small { display: block; margin-top: 8px; font: 500 10px/1.35 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: #4a5878; }
+.sp.empty { border: 1.5px dashed rgba(255,255,255,.26); background: rgba(255,255,255,.02); color: var(--muted); font: 500 11px/1.4 var(--font-data); letter-spacing: .12em; text-transform: uppercase; }
+.sp.cta { background: linear-gradient(135deg, rgba(61,220,122,.22), rgba(90,134,255,.28)); border: 1px solid rgba(61,220,122,.55); color: #fff; text-decoration: none; font: 800 clamp(17px, 1.8vw, 22px)/1.1 var(--font-display); letter-spacing: -.02em; transition: transform .25s; }
+.sp.cta:hover { transform: translateY(-4px); }
+.sp.cta small { display: block; margin-top: 8px; font: 500 11px/1.3 var(--font-data); letter-spacing: .1em; text-transform: uppercase; color: var(--green-soft); }
+@media (max-width: 1000px) { .sp-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .sp-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .sp { padding: 12px; } }
+
+/* ---------- stars that appear as you climb ---------- */
+.stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: var(--sp, .2);
+  background-image:
+    radial-gradient(1.6px 1.6px at 8% 12%, #fff, transparent 60%), radial-gradient(1.2px 1.2px at 22% 64%, #cfe0ff, transparent 60%), radial-gradient(1.8px 1.8px at 37% 28%, #fff, transparent 60%),
+    radial-gradient(1.2px 1.2px at 51% 82%, #fff, transparent 60%), radial-gradient(1.6px 1.6px at 63% 9%, #bfffd6, transparent 60%), radial-gradient(1.2px 1.2px at 74% 47%, #fff, transparent 60%),
+    radial-gradient(1.8px 1.8px at 88% 71%, #cfe0ff, transparent 60%), radial-gradient(1.2px 1.2px at 94% 22%, #fff, transparent 60%), radial-gradient(1.4px 1.4px at 15% 90%, #fff, transparent 60%), radial-gradient(1.2px 1.2px at 46% 52%, #cfe0ff, transparent 60%);
+  background-size: 520px 520px; }
+.stars.s2 { background-size: 340px 340px; background-position: 120px 80px; opacity: calc(var(--sp, .2) * .6); }
+@media (prefers-reduced-motion: no-preference) { .stars.s2 { animation: twinkle 5s ease-in-out infinite alternate; } @keyframes twinkle { from { filter: brightness(.7); } to { filter: brightness(1.4); } } }
+
+/* ---------- flight plan strip (Home) ---------- */
+.plan { list-style: none; margin: 44px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 22px; position: relative; }
+.plan::before { content: ""; position: absolute; left: 0; right: 0; top: 11px; height: 2px; background: linear-gradient(90deg, var(--blue), var(--green)); box-shadow: 0 0 14px rgba(61,220,122,.5); }
+.plan li { position: relative; padding-top: 44px; min-width: 0; }
+.plan li::before { content: ""; position: absolute; left: 0; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--bg); border: 3px solid var(--blue); z-index: 1; }
+.plan li:last-child::before { background: var(--green); border-color: var(--green); box-shadow: 0 0 20px rgba(61,220,122,.9); }
+.plan .pn { display: block; font: 500 11px/1 var(--font-data); letter-spacing: .16em; text-transform: uppercase; color: var(--green-soft); margin-bottom: 8px; }
+.plan b { display: block; font: 800 24px/1.05 var(--font-display); letter-spacing: -.035em; margin-bottom: 8px; }
+.plan p { margin: 0; color: var(--muted); font-size: 16px; line-height: 1.5; }
+@media (max-width: 1000px) { .plan { grid-template-columns: 1fr; gap: 26px; margin-top: 34px; } .plan::before { left: 8px; right: auto; top: 6px; bottom: 6px; width: 2px; height: auto; } .plan li { padding: 0 0 0 44px; } .plan li::before { left: 0; top: 2px; } }
+
+/* ---------- social links on team cards ---------- */
+.soc-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.soc { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 99px; border: 1.5px dashed rgba(255,255,255,.3); color: var(--muted); font: 600 13px/1 var(--font-body); text-decoration: none; }
+.soc svg { width: 15px; height: 15px; flex: none; }
+a.soc { border: 1px solid var(--line); background: var(--glass-hi); color: #fff; }
+a.soc:hover { background: rgba(255,255,255,.2); }
+
+/* ---------- inner page header ---------- */
+.phead { position: relative; overflow: clip; padding-block: clamp(36px, 7vw, 92px) clamp(24px, 4vw, 48px);
+  background: radial-gradient(58% 90% at 88% 0%, rgba(90,134,255,.30), transparent 70%), radial-gradient(40% 70% at 0% 100%, rgba(61,220,122,.12), transparent 70%); }
+.phead h1 { font-size: clamp(3rem, 8.6vw, 7.2rem); line-height: .88; letter-spacing: -.055em; max-width: 12ch; margin-bottom: 24px; }
+.phead .lead { font-size: clamp(18px, 2vw, 22px); color: var(--muted); max-width: 48ch; margin: 0; }
+@media (max-width: 820px) { .phead h1 { font-size: clamp(2.9rem, 14vw, 4.4rem); } }
+</style>
+
+<div class="grain" aria-hidden="true"></div>
+<div class="stars" aria-hidden="true"></div><div class="stars s2" aria-hidden="true"></div>
+
+<header class="hdr">
+  <div class="wrap">
+    <nav class="pill" aria-label="Main">
+      <a class="brand" href="#home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1c3 3 4.5 7 4.5 11v5h-9v-5C7.5 8 9 4 12 1z" fill="#3ddc7a"/><path d="M7.5 13L3 18v3l4.5-2zM16.5 13l4.5 5v3l-4.5-2z" fill="#a3b4da"/><circle cx="12" cy="9" r="1.8" fill="#040a1c"/></svg><span class="bt"><b>Edmonds Rocketry Club</b><small>Edmonds College &middot; Lynnwood, WA</small></span></a>
+      <ul class="tabs" id="tabs">
+        <li><a href="#home" data-tab="home">Home</a></li>
+        <li><a href="#timeline" data-tab="timeline">Timeline</a></li>
+        <li><a href="#about" data-tab="about">About</a></li>
+        <li><a href="#teams" data-tab="teams">Teams</a></li>
+        <li><a href="#investors" data-tab="investors">Investors</a></li>
+        <li><a href="#results" data-tab="results">IREC 2025</a></li>
+        <li class="m-only"><a class="give" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate</a></li>
+      </ul>
+      <a class="give" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate</a>
+      <button class="menu-btn" id="menuBtn" type="button" aria-expanded="false" aria-controls="tabs" aria-label="Menu"><span></span><span></span><span></span></button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<!-- HOME -->
+<div id="tab-home">
+  <div class="hero">
+    <svg class="traj" viewBox="0 0 1200 760" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="tg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#3ddc7a" stop-opacity="0"/><stop offset=".45" stop-color="#53c6c0"/><stop offset="1" stop-color="#7da2ff"/></linearGradient></defs>
+      <path d="M -20 735 C 330 765, 720 740, 830 430 S 1060 90, 1240 -30"/>
+      <path class="dots" d="M -20 765 C 340 795, 750 770, 860 450 S 1090 110, 1260 -10"/>
+    </svg>
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">Fundraising for IREC 2027</p>
+        <h1>Dream big.<br><span class="grad">Fly high.</span></h1>
+        <p class="lead">Edmonds College students are building a competition rocket for IREC 2027. Help us fund the build, the test flights and the trip.</p>
+        <div class="btns"><a class="btn go" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate now <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a><a class="btn ghost" href="#investors">Become a sponsor</a></div>
+      </div>
+      <figure class="hero-art">
+        <img src="img/rocket-closeup.jpg" alt="The blue and green Dynamo rocket on its rail against a deep blue sky, with the Edmonds College name and the words Dream big, fly high" width="1086" height="1448" fetchpriority="high">
+        <div class="chip c1">Next competition<b>IREC 2027</b></div>
+        <div class="chip c2">Built by<b>Students</b></div>
+      </figure>
+    </div>
+  </div>
+
+  <div class="marq" aria-label="Highlights">
+    <div class="marq-in">
+      <ul><li><b>IREC 2027</b></li><li>Student-built rockets</li><li>Edmonds College</li><li>Lynnwood, WA</li><li>Gifts from $50</li><li>Dream big, fly high</li><li>Sponsors welcome</li></ul>
+      <ul aria-hidden="true"><li><b>IREC 2027</b></li><li>Student-built rockets</li><li>Edmonds College</li><li>Lynnwood, WA</li><li>Gifts from $50</li><li>Dream big, fly high</li><li>Sponsors welcome</li></ul>
+    </div>
+  </div>
+
+  <section class="s">
+    <div class="wrap">
+      <p class="eyebrow">The mission</p>
+      <h2>Students building a rocket to fly at IREC 2027</h2>
+      <p class="lede">Edmonds Rocketry Club is a student team at Edmonds College in Lynnwood, Washington. We design, build and launch rockets, and next year we are taking our biggest project to the International Rocket Engineering Competition.</p>
+      <div class="bento">
+        <div class="glass b-alt">
+          <div class="k">Our next competition</div>
+          <div>
+            <div class="huge sm">IREC <span class="grad">2027</span></div>
+            <p style="margin-top:12px">Student teams from around the world fly rockets they built themselves, and judges score the design, the paperwork and the flight.</p>
+            <div class="stages" aria-label="Project stages"><span>Design</span><span>Build</span><span>Test</span><span>Fly</span></div>
+          </div>
+        </div>
+        <figure class="glass b-photo"><img src="img/build-night.jpg" alt="Club members and a mentor around long fiberglass rocket airframes laid out on tables during a build session" loading="lazy" style="object-position:50% 62%"><figcaption class="cap">Building the next rocket</figcaption></figure>
+        <div class="glass tile b-teams"><div class="big s grad">$50 to $1,500</div><div class="k">Giving levels, each tied to a real part of the build</div></div>
+        <div class="glass tile b-crew"><div class="big s grad">Hands-on</div><div class="k">Students design, build and launch real rockets</div></div>
+        <div class="glass tile b-score"><div class="k">Track record</div><div class="big s">We have flown at IREC before</div><p>Our 2025 rocket flew and was recovered intact.</p><a class="tlink" href="#results">See the 2025 results <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="glass tile b-safe"><div class="k">Community</div><div class="big s">Learning beyond the classroom</div><p>The club takes STEM outside the classroom and connects Edmonds students and faculty with area high school students.</p></div>
+      </div>
+      <p class="note">Mission from the <a href="https://edmonds.edu/programs-and-degrees/areas-of-study/engineering-and-manufacturing/engineering/rocketry.html">Edmonds College rocketry program page</a>.</p>
+    </div>
+  </section>
+
+  <section class="s alt" id="plan">
+    <div class="wrap">
+      <p class="eyebrow">Flight plan</p>
+      <h2>The road to IREC 2027</h2>
+      <p class="lede">Every stage of the build is scheduled around the competition's own deadlines, counting down to launch day.</p>
+      <ol class="plan">
+        <li><span class="pn">T&minus;4</span><b>Design</b><p>Choose the target altitude, size the rocket and run simulations.</p></li>
+        <li><span class="pn">T&minus;3</span><b>Build</b><p>Build the airframe, avionics and recovery system.</p></li>
+        <li><span class="pn">T&minus;2</span><b>Test</b><p>Fly test launches and compare the results to our model.</p></li>
+        <li><span class="pn">T&minus;1</span><b>Travel</b><p>Ship the rocket, check in and pass judging.</p></li>
+        <li><span class="pn">T&minus;0</span><b>Launch day</b><p>Fly, recover and present our results.</p></li>
+      </ol>
+      <div class="btns" style="margin-top:40px"><a class="btn solid" href="#timeline">See the full timeline <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+    </div>
+  </section>
+
+  <section class="s">
+    <div class="wrap two">
+      <figure class="ph"><div class="crop" style="aspect-ratio:4/5"><img src="img/team-dynamo.jpg" alt="Five Edmonds College students and a mentor standing around the blue and green Dynamo rocket at IREC 2025" loading="lazy" style="object-position:50% 30%"></div><figcaption>Team 116 with Dynamo, IREC 2025</figcaption></figure>
+      <div>
+        <p class="eyebrow">The goal</p>
+        <h2>A stronger rocket for IREC 2027</h2>
+        <p class="lede">We know what the competition asks of a team. This time we plan to start earlier, submit every update on time and bring a bigger group.</p>
+        <div class="btns" style="margin-top:28px"><a class="btn solid" href="#timeline">Our build timeline <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a><a class="btn ghost" href="#investors">For investors</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="s alt">
+    <div class="wrap">
+      <p class="eyebrow">Giving levels</p>
+      <h2>Each gift pays for part of the build</h2>
+      <p class="lede">Each level is tied to something we have to buy or pay for. Choose one on our Qgiv page.</p>
+      <div class="tiers" tabindex="0" aria-label="Giving levels, swipe sideways to see more">
+<article class="glass tier top"><span class=flag>Top level</span><div class="timg"><img src="img/tier-interstellar.jpg" alt="Nebula glowing in deep space" ></div><div class="tbody"><div class="trow"><h3>Interstellar Supporter</h3><span class="price">$1,500</span></div><p>Covers costs for one team member to attend IREC, supporting competition, transportation and travel expenses.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-milkyway.jpg" alt="The Milky Way arching over a dark mountain range" ></div><div class="tbody"><div class="trow"><h3>Milky Way Supporter</h3><span class="price">$1,000</span></div><p>Covers one test flight: rocket motor, launch fees, food and travel for team members.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-mars.jpg" alt="Red rock cliffs and dusty plains on Mars" ></div><div class="tbody"><div class="trow"><h3>Mars Supporter</h3><span class="price">$500</span></div><p>Buys the motor for our competition rocket.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-moon.jpg" alt="Cratered gray surface of the Moon under a black sky" ></div><div class="tbody"><div class="trow"><h3>Moon Supporter</h3><span class="price">$250</span></div><p>Helps fund composite materials and fabricated components for our competition rocket.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-orbit.jpg" alt="A rocket climbing above a mountain valley on a white smoke trail" ></div><div class="tbody"><div class="trow"><h3>Orbit Supporter</h3><span class="price">$100</span></div><p>Supports recovery and avionics components that help bring our rockets safely home.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-earth.jpg" alt="Earth from orbit with a large storm system and sunrise on the horizon" ></div><div class="tbody"><div class="trow"><h3>Earth Supporter</h3><span class="price">$50</span></div><p>Provides essential materials and supplies used to build and test our rockets.</p></div></article>
+</div>
+      <p class="swipe">Swipe to see all levels</p>
+      <div class="btns" style="margin-top:30px"><a class="btn go" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Choose a level on Qgiv <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+    </div>
+  </section>
+
+  <section class="s">
+    <div class="wrap">
+      <p class="eyebrow">Support the team</p>
+      <h2>Three ways to help us fly</h2>
+      <div class="cards">
+        <div class="glass card"><h3>Give</h3><p>Pick a giving level from $50 to $1,500 on our Qgiv page. Every level pays for something real.</p><a class="link" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate on Qgiv <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="glass card"><h3>Sponsor</h3><p>Companies and organizations can back the build and be recognized on our rocket and site.</p><a class="link" href="#investors">Sponsor information <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+        <div class="glass card"><h3>Share skills and materials</h3><p>Machining, composites, electronics, shipping and mentorship help as much as cash.</p><span class="link fill">[contact email]</span></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ABOUT -->
+<div id="tab-about" hidden>
+  <div class="phead"><div class="wrap">
+    <p class="eyebrow">About us</p>
+    <h1>Students who <span class="grad">build real rockets</span></h1>
+    <p class="lead">We are the rocketry club at Edmonds College in Lynnwood, Washington.</p>
+  </div></div>
+
+  <section class="s">
+    <div class="wrap two">
+      <div>
+        <h2>What we do</h2>
+        <p class="lede">Members design, simulate, build and launch their own rockets, from small kits to fiberglass airframes with electronics and a science payload.</p>
+        <p class="muted">The club exists to take STEM education outside the classroom, give students projects that strengthen their engineering portfolios and connect Edmonds students and faculty with area high school students. It also shows the community the quality of engineering education at Edmonds College.</p>
+        <p class="note">Mission from the <a href="https://edmonds.edu/programs-and-degrees/areas-of-study/engineering-and-manufacturing/engineering/rocketry.html">Edmonds College rocketry program page</a>. Faculty advisor: William Hamp.</p>
+      </div>
+      <figure class="ph"><div class="crop r43"><img src="img/build-night.jpg" alt="Club members and a mentor around long fiberglass rocket airframes laid out on tables during a build session" loading="lazy" style="object-position:50% 60%"></div><figcaption>A build session with airframes for the next rocket</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="s alt">
+    <div class="wrap two top-al">
+      <figure class="ph"><div class="crop r43"><img src="img/irec-crowd.jpg" alt="Hundreds of students and organizers at IREC holding their rockets upright in a large group photo" loading="lazy"></div><figcaption>Teams from around the world at IREC</figcaption></figure>
+      <div>
+        <p class="eyebrow">What is IREC</p>
+        <h2>International Rocket Engineering Competition</h2>
+        <p class="lede">IREC is an annual competition for student rocketry teams from the USA and around the world. It is run by the Experimental Sounding Rocket Association.</p>
+        <p class="muted">Teams build a rocket that carries a payload of at least 2.2 pounds and aim for a target altitude of 10,000, 30,000 or 45,000 feet. Rockets are typically 4 to 8 inches wide and 8 to 20 feet long. Solid, liquid and hybrid motors are all allowed. The event has run since 2006 and moved to Spaceport Midland in Texas in 2025.</p>
+        <p class="note">Source: <a href="https://www.soundingrocket.org/what-is-irec.html">Experimental Sounding Rocket Association, What is IREC</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="s">
+    <div class="wrap">
+      <p class="eyebrow">Our story</p>
+      <h2>Small team, year-long project</h2>
+      <p class="lede">Our 2025 launch team had five students, far fewer than most competitors. A storm damaged the site and only a few teams were allowed to fly, and we earned a launch slot. Judges praised our design, and Washington State University loaned spare parts when we needed them.</p>
+      <p class="note">Source: <a href="https://www.edmonds.edu/about-edmonds/news/tritons-blog/edmonds-college-rocketry.html">Edmonds College Tritons blog</a> and <a href="https://mltnews.com/sponsor-spotlight-edmonds-college-rocketry-team-launches-big-at-irec/">MLT News sponsor spotlight</a>.</p>
+      <div class="gal">
+        <figure class="ph tall"><img src="img/team-dynamo.jpg" alt="Five Edmonds College students and a mentor standing around the blue and green Dynamo rocket at IREC 2025" loading="lazy" style="object-position:50% 30%"></figure>
+        <figure class="ph"><img src="img/club-table.jpg" alt="Club members talking with a visitor at the Edmonds rocketry table covered in small rockets and parts" loading="lazy"></figure>
+        <figure class="ph"><img src="img/irec-team-poster.jpg" alt="Four students in Edmonds College STEM shirts in front of the Dynamo design poster at their IREC 2025 table" loading="lazy"></figure>
+        <figure class="ph"><img src="img/launch-field.jpg" alt="Spectators in camp chairs behind a safety line watching rockets on pads across a green launch field" loading="lazy"></figure>
+        <figure class="ph"><img src="img/butterscotch-pad.jpg" alt="A brown and gold rocket named Butterscotch ready on a launch pad in a grass field" loading="lazy" style="object-position:50% 40%"></figure>
+        <figure class="ph wide"><img src="img/team-sunset.jpg" alt="Five club members with their arms around each other in front of a sunset sky at a launch event" loading="lazy"></figure>
+        <figure class="ph"><img src="img/butterscotch-sunset.jpg" alt="A club member holding the Butterscotch rocket overhead with the sun setting behind its fins" loading="lazy" style="object-position:50% 30%"></figure>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- TEAMS -->
+<div id="tab-teams" hidden>
+  <div class="phead"><div class="wrap">
+    <p class="eyebrow">Our teams</p>
+    <h1>Every rocket is a <span class="grad">team sport</span></h1>
+    <p class="lead">A competition rocket needs several kinds of engineers working together. Meet the groups that build ours.</p>
+  </div></div>
+
+  <section class="s">
+    <div class="wrap">
+      <!-- <p class="note" style="margin:0 0 4px">Placeholder layout. Replace each card with your real sub-teams, leads and photos.</p> -->
+      <div class="cards">
+        <!-- <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>President</h3><p></p>L1 certified. Worked as Software Engineer & Machine Learning Engineer. Studying Mechanical Engineer<\b><div class="meta fill">Kakamyrat Charyyev</div><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article> -->
+         <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>President</h3>
+          <div class="meta">Kakamyrat Charyyev</div><p>L1 certified. Worked as a Software Engineer and Machine Learning Engineer. Studying Mechanical Engineering.</p><div class="soc-row">
+          <!-- <span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span> -->
+          <span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>@myrat_charyyev</span></div></div></article>
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>Propulsion</h3><p>Chooses and prepares the motor and checks that thrust matches the altitude we are aiming for.</p><div class="meta fill">[team lead name]</div><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>Recovery</h3><p>Packs and tests the parachutes and deployment system that bring the rocket home intact.</p><div class="meta fill">[team lead name]</div><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>Avionics</h3><p>Builds the flight computer, tracker and sensors that record the flight and fire recovery events.</p><div class="meta fill">[team lead name]</div><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>Payload</h3><p>Develops the science experiment the rocket carries, which must weigh at least 2.2 pounds.</p><div class="meta fill">[team lead name]</div><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>Business and outreach</h3><p>Runs fundraising, sponsor relations, travel planning and visits to high schools.</p><div class="meta fill">[team lead name]</div><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="s alt">
+    <div class="wrap">
+      <p class="eyebrow">Leadership</p>
+      <h2>Advisor and officers</h2>
+      <div class="cards">
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3>William Hamp</h3><p>Faculty advisor, Edmonds College.</p><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3 class="fill" style="display:inline-block">[name]</h3><p>[Role]</p><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+        <article class="glass team"><div class="photo">Photo coming</div><div class="body"><h3 class="fill" style="display:inline-block">[name]</h3><p>[Role]</p><div class="soc-row"><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4v11.5H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1v5.8h-4v-5.15c0-1.23-.02-2.8-1.7-2.8-1.7 0-1.96 1.33-1.96 2.7v5.25h-4z" fill="currentColor"/></svg>LinkedIn</span><span class="soc" title="Link coming soon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21.5l-7.1 8.12L22.75 22h-6.54l-5.12-6.7L5.2 22H1.94l7.6-8.68L1.5 2h6.7l4.63 6.12L18.244 2zm-1.14 18h1.8L7.2 3.9H5.27L17.1 20z" fill="currentColor"/></svg>Twitter / X</span></div></div></article>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- IREC 2025 RESULTS -->
+<div id="tab-results" hidden>
+  <div class="phead"><div class="wrap">
+    <p class="eyebrow">Competition statistics</p>
+    <h1>IREC 2025: <span class="grad">the numbers</span></h1>
+    <p class="lead">Team 116, Edmonds College, 10K COTS category. Dynamo flew to within 156 feet of its target.</p>
+  </div></div>
+
+  <section class="s" style="padding-top:20px">
+    <div class="wrap">
+      <div class="facts" style="margin-top:0">
+        <div class="glass fact"><b class="grad">611.8</b><span>Final score</span></div>
+        <div class="glass fact"><b class="grad">82 of 158</b><span>Overall rank among registered teams</span></div>
+        <div class="glass fact"><b class="grad">56th</b><span>Rank in the 10K COTS category</span></div>
+        <div class="glass fact"><b class="grad">No damage</b><span>Rocket recovered intact, full recovery points</span></div>
+      </div>
+      <p class="note">All figures come from the <a href="https://docs.google.com/spreadsheets/d/1Un8z4GkGsnIpiH_49G3IDSR8Brj0xnQT/edit?gid=1885484975#gid=1885484975">IREC 2025 final scoresheet</a>.</p>
+    </div>
+  </section>
+
+  <section class="s alt">
+    <div class="wrap">
+      <p class="eyebrow">Flight</p>
+      <h2>Close to target and close to our model</h2>
+      <p class="lede">We aimed for 10,000 ft. Dynamo reached 9,844 ft. Our simulation predicted 10,274 ft, so the real flight landed within 4.2 percent of the model.</p>
+      <svg class="alt-svg" viewBox="0 0 720 170" role="img" aria-label="Altitude scale from 9,000 to 11,000 feet. Actual apogee 9,844 feet, target 10,000 feet, predicted 10,274 feet.">
+        <defs><linearGradient id="ag" x1="0" x2="1"><stop offset="0" stop-color="#5a86ff"/><stop offset="1" stop-color="#3ddc7a"/></linearGradient></defs>
+        <line class="axis" x1="30" y1="96" x2="690" y2="96"/>
+        <line class="tgt" x1="360" y1="76" x2="360" y2="118"/>
+        <line x1="308.5" y1="70" x2="308.5" y2="96" stroke="#3ddc7a" stroke-width="2"/>
+        <line x1="450.4" y1="70" x2="450.4" y2="96" stroke="#5a86ff" stroke-width="2"/>
+        <circle cx="308.5" cy="96" r="9" fill="#3ddc7a"/>
+        <circle cx="450.4" cy="96" r="9" fill="#5a86ff"/>
+        <text class="strong" x="312" y="58" text-anchor="end">ACTUAL 9,844 ft</text>
+        <text class="strong" x="447" y="58" text-anchor="start">PREDICTED 10,274 ft</text>
+        <text class="strong" x="360" y="140" text-anchor="middle">TARGET 10,000 ft</text>
+        <text x="30" y="122" text-anchor="start">9,000 ft</text>
+        <text x="690" y="122" text-anchor="end">11,000 ft</text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="s">
+    <div class="wrap">
+      <p class="eyebrow">Score breakdown</p>
+      <h2>Strong flight, paperwork to fix</h2>
+      <p class="lede">Each bar shows the points we earned out of the points available in that part of the score.</p>
+      <div class="score-grid">
+        <div class="bars">
+          <div class="bar-row"><div class="lab"><span>Flight performance</span><b>481.5 / 500</b></div><div class="track"><div class="fillbar" style="width:96.3%"></div></div></div>
+          <div class="bar-row"><div class="lab"><span>Design and build</span><b>177 / 240</b></div><div class="track"><div class="fillbar" style="width:73.8%"></div></div></div>
+          <div class="bar-row"><div class="lab"><span>Technical report, before penalty</span><b>123.3 / 200</b></div><div class="track"><div class="fillbar" style="width:61.7%"></div></div></div>
+          <div class="bar-row"><div class="lab"><span>Entry and progress updates</span><b>30 / 60</b></div><div class="track"><div class="fillbar" style="width:50%"></div></div></div>
+          <div class="bar-row"><div class="lab"><span>Late or administrative penalty</span><b>-200 pts</b></div><div class="track"><div class="fillbar pen" style="width:100%"></div></div></div>
+        </div>
+        <div>
+          <div class="callout"><b>Where we lost the most.</b> A 200-point late or administrative penalty on the technical report, and zero points on two of the three progress updates. Without that penalty our score would have been about 811.8, which would have put us in the top 30 of the 87 teams in 10K COTS.</div>
+          <p class="muted" style="margin-top:20px">None of this was about the rocket. Paperwork is the most fixable part of our result, and our 2027 timeline schedules every deadline early.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="s alt">
+    <div class="wrap">
+      <p class="eyebrow">Scoresheet detail</p>
+      <h2>Dynamo's 2025 scoresheet</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Measure</th><th class="num">Value</th></tr></thead>
+          <tbody>
+            <tr><td>Category</td><td class="num">10K COTS</td></tr>
+            <tr><td>Target altitude</td><td class="num">10,000 ft</td></tr>
+            <tr><td>Actual altitude</td><td class="num">9,844 ft</td></tr>
+            <tr><td>Apogee prediction</td><td class="num">10,274 ft</td></tr>
+            <tr><td>Prediction error</td><td class="num">4.2%</td></tr>
+            <tr><td>Altitude score</td><td class="num">331.5</td></tr>
+            <tr><td>Recovery score</td><td class="num">150</td></tr>
+            <tr><td>Flight status</td><td class="num">No damage</td></tr>
+            <tr><td>Design quality</td><td class="num">80 / 120</td></tr>
+            <tr><td>Build quality</td><td class="num">97 / 120</td></tr>
+            <tr><td>Final score</td><td class="num">611.8</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">The competition had 158 registered teams, 142 of which launched and 16 of which withdrew.</p>
+    </div>
+  </section>
+</div>
+
+<!-- TIMELINE -->
+<div id="tab-timeline" hidden>
+  <div class="phead"><div class="wrap">
+    <p class="eyebrow">Road to IREC 2027</p>
+    <h1>Our build <span class="grad">timeline</span></h1>
+    <p class="lead">The competition scores every stage from entry to launch, so we plan the build around its deadlines.</p>
+  </div></div>
+
+  <section class="s" style="padding-top:20px">
+    <div class="wrap">
+      <p class="note" style="margin:0">Stages count down to launch day (T&minus;0). Dates are placeholders. Replace each [date] with your real schedule.</p>
+      <ol class="tl">
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;8</span><span class="fill">Oct 14, 2026</span></div><div><h3>Design review</h3><p>Choose the target altitude and category, set the rocket's size and mass, and run simulations.</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;7</span><span class="fill">Oct 23, 2026</span></div><div><h3>Applied for IREC<span class="pt">IREC · 15 pts</span></h3><p>Register with the competition and submit the entry paperwork.</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;6</span><span class="fill">Nov 15, 2026</span></div><div><h3>Parts ordered and funding secured</h3><p>Order tubes, motor, avionics and payload parts once the fundraising goal is met.</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;5</span><span class="fill">Nov 17, 2026</span></div><div><h3>Accepted into IREC
+          <!-- <span class="pt">IREC · 15 pts each</span> -->
+        </h3><p>Three scheduled updates to the competition. We scored 0 on two of the three in 2025, so these get calendar reminders and a named owner.</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;4</span><span class="fill">Dec 14, 2026</span></div><div><h3>Submit PDR to IREC</h3><p>Build the structure, integrate the flight computer and tracker, and pack the recovery system.</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;3</span><span class="fill">[date]</span></div><div><h3>Technical report<span class="pt">IREC · 200 pts</span></h3><p>Submit the full report on time. The late penalty cost us 200 points in 2025.</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;2</span><span class="fill">Feb 28, 2027</span></div><div><h3>First subscale test launch</h3><p>Complete the build and avionics to launch it in Brother, OR</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;2</span><span class="fill">March 28, 2027</span></div><div><h3>Full scale test launch</h3><p>Complete the full scale build and lander to launch it in Brother, OR</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;1</span><span class="fill">June 10, 2027</span></div><div><h3>Travel to IREC</h3><p>Ship the rocket, check in and pass design and build judging.</p></div></div></li>
+        <li><div class="glass"><div class="when"><span class="tm">T&minus;0</span><span class="fill">June 12-17, 2027</span></div><div><h3>Launch day</h3><p>The moment of truth.</p></div></div></li>
+      </ol>
+      <p class="note">IREC scoring stages are listed in the <a href="https://docs.google.com/spreadsheets/d/1Un8z4GkGsnIpiH_49G3IDSR8Brj0xnQT/edit?gid=1885484975#gid=1885484975">IREC 2025 final scoresheet</a>.</p>
+    </div>
+  </section>
+</div>
+
+<!-- INVESTORS -->
+<div id="tab-investors" hidden>
+  <div class="phead"><div class="wrap">
+    <p class="eyebrow">For investors and sponsors</p>
+    <h1>Back a team that <span class="grad">actually flies</span></h1>
+    <p class="lead">A small community college team already flew at IREC and recovered its rocket. Your support lets us build the next one properly.</p>
+    <div class="btns" style="margin-top:30px"><a class="btn go" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate on Qgiv <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a><a class="btn ghost" href="#results">See our 2025 numbers</a></div>
+  </div></div>
+
+  <section class="s">
+    <div class="wrap two top-al">
+      <div>
+        <p class="eyebrow">Why us</p>
+        <h2>Proof that we deliver</h2>
+        <ul class="checks">
+          <li>Our 2025 rocket flew to 9,844 ft against a 10,000 ft target and was recovered with no damage.</li>
+          <li>Judges praised our design, and we earned a launch slot after storm damage cut the number of flights.</li>
+          <li>We did it with five launch-team students against 158 registered teams, most from large universities.</li>
+          <li>We know exactly what cost us points and have a timeline built to fix it.</li>
+        </ul>
+        <p class="note">Sources: <a href="#results">IREC 2025 tab</a>, <a href="https://www.edmonds.edu/about-edmonds/news/tritons-blog/edmonds-college-rocketry.html">Edmonds College Tritons blog</a>.</p>
+      </div>
+      <figure class="ph"><div class="crop r43"><img src="img/irec-team-poster.jpg" alt="Four students in Edmonds College STEM shirts in front of the Dynamo design poster at their IREC 2025 table" loading="lazy" style="object-position:50% 40%"></div><figcaption>Presenting Dynamo to judges at IREC 2025</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="s alt" id="sponsors">
+    <div class="wrap">
+      <p class="eyebrow">Our sponsors</p>
+      <h2>Thank you to the people who back us</h2>
+      <p class="lede">Companies, schools and individuals who help us build and fly. Their support pays for parts, travel and the chance to compete.</p>
+      <div class="sp-grid">
+        <div class="sp real">Washington State University<small>Loaned parts and shared lodging, IREC 2025</small></div>
+        <div class="sp empty">[Sponsor logo]</div>
+        <div class="sp empty">[Sponsor logo]</div>
+        <div class="sp empty">[Sponsor logo]</div>
+        <div class="sp empty">[Sponsor logo]</div>
+        <div class="sp empty">[Sponsor logo]</div>
+        <div class="sp empty">[Sponsor logo]</div>
+        <a class="sp cta" href="#sponsor-contact">Your logo here<small>Become a sponsor</small></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="s">
+    <div class="wrap">
+      <p class="eyebrow">Use of funds</p>
+      <h2>Where your gift goes</h2>
+      <ul class="uses">
+        <li class="glass"><h3>Airframe and materials</h3><p>Fiberglass or carbon tubes, nose cone, fins, epoxy and hardware.</p></li>
+        <li class="glass"><h3>Motor and propellant</h3><p>Certified motors sized for our target altitude, plus test and spare units.</p></li>
+        <li class="glass"><h3>Avionics and payload</h3><p>Flight computers, GPS trackers, sensors and the science payload.</p></li>
+        <li class="glass"><h3>Recovery system</h3><p>Parachutes, deployment charges and shock cord.</p></li>
+        <li class="glass"><h3>Test launches</h3><p>Field fees, travel and supplies for the flights that prove the design.</p></li>
+        <li class="glass"><h3>Travel and registration</h3><p>Competition entry, shipping the rocket and lodging for the team.</p></li>
+      </ul>
+      <p class="note">Budget with dollar amounts: <span class="fill">[add budget or link]</span>.</p>
+    </div>
+  </section>
+
+  <section class="s alt">
+    <div class="wrap">
+      <p class="eyebrow">Giving levels</p>
+      <h2>What your gift pays for</h2>
+      <p class="lede">From a $50 supply gift to a $1,500 trip for one team member, each level covers a specific part of the build.</p>
+      <div class="tiers" tabindex="0" aria-label="Giving levels, swipe sideways to see more">
+<article class="glass tier top"><span class=flag>Top level</span><div class="timg"><img src="img/tier-interstellar.jpg" alt="Nebula glowing in deep space" ></div><div class="tbody"><div class="trow"><h3>Interstellar Supporter</h3><span class="price">$1,500</span></div><p>Covers costs for one team member to attend IREC, supporting competition, transportation and travel expenses.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-milkyway.jpg" alt="The Milky Way arching over a dark mountain range" ></div><div class="tbody"><div class="trow"><h3>Milky Way Supporter</h3><span class="price">$1,000</span></div><p>Covers one test flight: rocket motor, launch fees, food and travel for team members.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-mars.jpg" alt="Red rock cliffs and dusty plains on Mars" ></div><div class="tbody"><div class="trow"><h3>Mars Supporter</h3><span class="price">$500</span></div><p>Buys the motor for our competition rocket.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-moon.jpg" alt="Cratered gray surface of the Moon under a black sky" ></div><div class="tbody"><div class="trow"><h3>Moon Supporter</h3><span class="price">$250</span></div><p>Helps fund composite materials and fabricated components for our competition rocket.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-orbit.jpg" alt="A rocket climbing above a mountain valley on a white smoke trail" ></div><div class="tbody"><div class="trow"><h3>Orbit Supporter</h3><span class="price">$100</span></div><p>Supports recovery and avionics components that help bring our rockets safely home.</p></div></article>
+<article class="glass tier"><div class="timg"><img src="img/tier-earth.jpg" alt="Earth from orbit with a large storm system and sunrise on the horizon" ></div><div class="tbody"><div class="trow"><h3>Earth Supporter</h3><span class="price">$50</span></div><p>Provides essential materials and supplies used to build and test our rockets.</p></div></article>
+</div>
+      <p class="swipe">Swipe to see all levels</p>
+      <div class="btns" style="margin-top:30px"><a class="btn go" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Choose a level on Qgiv <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+      <p class="note">Companies and organizations that want to sponsor at a higher level, or give materials, machining or services, can contact us at <span class="fill">[contact email]</span>.</p>
+    </div>
+  </section>
+
+  <section class="s" style="padding-top:0">
+    <div class="wrap">
+      <div class="glass panel" id="sponsor-contact">
+        <p class="eyebrow">Get in touch</p>
+        <h2>Talk to the team</h2>
+        <p>We are happy to share our plan, our budget and our timeline, or to show you the rocket in person.</p>
+        <div class="lines">
+          <div><span>Email</span><b class="fill" style="font-weight:500">[club email]</b></div>
+          <div><span>Faculty advisor</span>William Hamp</div>
+          <div><span>Instagram</span><b class="fill" style="font-weight:500">[handle]</b></div>
+          <div><span>Campus</span>20000 68th Ave. W, Lynnwood, WA 98036</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+</main>
+
+<footer class="foot">
+  <img class="foot-bg" src="img/launch-footer.jpg" alt="A rocket climbing on a trail of white smoke above spectators at a launch field" loading="lazy">
+  <div class="foot-shade"></div>
+  <div class="wrap foot-inner">
+    <div class="foot-cta">
+      <p class="eyebrow">Help us reach the sky</p>
+      <h2>Dream big. <span class="grad">Fly high.</span></h2>
+      <p class="lead">Your gift builds the rocket, pays for test flights and takes our team to IREC 2027.</p>
+      <div class="btns"><a class="btn go" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate on Qgiv <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a><a class="btn ghost" href="#investors">See giving levels</a></div>
+    </div>
+    <div class="foot-cols">
+      <div class="foot-brand"><b>Edmonds Rocketry Club</b><p>A student club at Edmonds College, building and launching rockets in Lynnwood, Washington.</p><address>20000 68th Ave. W<br>Lynnwood, WA 98036</address></div>
+      <div><h4>Explore</h4><ul><li><a href="#home">Home</a></li><li><a href="#timeline">Timeline</a></li><li><a href="#about">About</a></li><li><a href="#teams">Teams</a></li><li><a href="#results">IREC 2025</a></li></ul></div>
+      <div><h4>Support</h4><ul><li><a href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate on Qgiv</a></li><li><a href="#investors">Giving levels</a></li><li><a href="#investors">Sponsors and contact</a></li></ul></div>
+    </div>
+    <div class="foot-base"><span>Edmonds Rocketry Club, a student club at Edmonds College</span><span>Student-run site, not the official college website.</span></div>
+  </div>
+</footer>
+
+<div class="alt-read" id="altread" aria-hidden="true">Alt <b><span id="alt">0</span> ft</b><i></i></div>
+</div>
+<div class="dock"><a class="btn go" href="https://secure.qgiv.com/event/1157084/" target="_blank" rel="noopener">Donate to the team <svg class="arr" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a></div>
+
+<script>
+  var TABS = ["home", "about", "teams", "results", "timeline", "investors"];
+  var first = true;
+  function route() {
+    var h = (location.hash || "").replace("#", "");
+    if (TABS.indexOf(h) === -1) h = "home";
+    TABS.forEach(function (t) { document.getElementById("tab-" + t).hidden = (t !== h); });
+    document.querySelectorAll(".tabs a[data-tab]").forEach(function (a) {
+      if (a.getAttribute("data-tab") === h) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    if (!first) window.scrollTo(0, 0);
+    setMenu(false);
+    first = false;
+    readout();
+  }
+  function readout() {
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+    var alt = Math.round(p * 1000) * 10;
+    var a = document.getElementById("alt"), ar = document.getElementById("altread"), ph = document.getElementById("phase");
+    if (a) a.textContent = alt.toLocaleString("en-US");
+    if (ar) ar.style.setProperty("--p", (p * 100).toFixed(1) + "%");
+    if (ph) ph.textContent = p < 0.03 ? "On the pad" : p < 0.35 ? "Powered ascent" : p < 0.8 ? "Coasting" : p < 0.97 ? "Nearing apogee" : "Apogee";
+    document.documentElement.style.setProperty("--sp", Math.min(1, 0.2 + p * 0.9).toFixed(2));
+    timeline();
+  }
+  function timeline() {
+    var ol = document.querySelector(".tl");
+    if (!ol || (ol.closest && ol.closest("[hidden]"))) return;
+    var r = ol.getBoundingClientRect(), vh = window.innerHeight, line = vh * 0.6;
+    var prog = Math.min(1, Math.max(0, (line - r.top) / r.height));
+    ol.style.setProperty("--tpn", prog.toFixed(3));
+    for (var i = 0; i < ol.children.length; i++) {
+      var li = ol.children[i], lr = li.getBoundingClientRect();
+      li.classList.toggle("done", lr.top + 30 < line);
+    }
+  }
+  var btn = document.getElementById("menuBtn"), tabsEl = document.getElementById("tabs");
+  function setMenu(open) {
+    if (!btn || !tabsEl) return;
+    tabsEl.classList.toggle("open", open);
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  if (btn) {
+    btn.addEventListener("click", function () { setMenu(btn.getAttribute("aria-expanded") !== "true"); });
+    tabsEl.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) setMenu(false); });
+    document.addEventListener("click", function (e) { if (!e.target.closest || !e.target.closest(".pill")) setMenu(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenu(false); });
+  }
+  var tick = false;
+  window.addEventListener("scroll", function () { if (!tick) { tick = true; requestAnimationFrame(function () { tick = false; readout(); }); } }, { passive: true });
+  window.addEventListener("resize", readout);
+  window.addEventListener("hashchange", route);
+  document.addEventListener("pointermove", function (e) {
+    var g = e.target && e.target.closest ? e.target.closest(".glass") : null;
+    if (!g) return;
+    var r = g.getBoundingClientRect();
+    g.style.setProperty("--mx", (e.clientX - r.left) + "px");
+    g.style.setProperty("--my", (e.clientY - r.top) + "px");
+  }, { passive: true });
+  route();
+</script>
